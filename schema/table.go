@@ -67,6 +67,8 @@ type Table struct {
 	UpdateSoftDeleteField func(fv reflect.Value, tm time.Time) error
 
 	flags internal.Flag
+
+	Checksum string
 }
 
 type structField struct {

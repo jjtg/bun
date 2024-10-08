@@ -3,8 +3,10 @@ package dbfixture
 import (
 	"bytes"
 	"context"
+	"crypto/md5"
 	"database/sql"
 	"fmt"
+	"io"
 	"io/fs"
 	"reflect"
 	"regexp"
@@ -139,12 +141,23 @@ func (f *Fixture) load(ctx context.Context, fsys fs.FS, name string) error {
 
 	var fixtures []fixtureData
 
+	// Create a new MD5 hash object
+	hasher := md5.New()
+
+	if _, err := io.Copy(hasher, fh); err != nil {
+		fmt.Printf("failed to copy file contents to md5 hasher %v", err)
+	}
+
+	// Get the MD5 checksum
+	checksum := hasher.Sum(nil)
+
 	dec := yaml.NewDecoder(fh)
 	if err := dec.Decode(&fixtures); err != nil {
 		return err
 	}
 
 	for i := range fixtures {
+		fixtures[i].Checksum = fmt.Sprintf("%v", checksum)
 		if err := f.addFixture(ctx, &fixtures[i]); err != nil {
 			return err
 		}
@@ -154,7 +167,7 @@ func (f *Fixture) load(ctx context.Context, fsys fs.FS, name string) error {
 }
 
 func (f *Fixture) addFixture(ctx context.Context, data *fixtureData) error {
-	table := f.db.Dialect().Tables().ByModel(data.Model)
+	table := f.db.Dialect().Tables().ByChecksum(data.Checksum)
 	if table == nil {
 		return fmt.Errorf("fixture: can't find model=%q (use db.RegisterModel)", data.Model)
 	}
@@ -406,8 +419,9 @@ func (f *Fixture) evalFuncCall(templ string) (interface{}, bool) {
 }
 
 type fixtureData struct {
-	Model string `yaml:"model"`
-	Rows  []row  `yaml:"rows"`
+	Model    string `yaml:"model"`
+	Rows     []row  `yaml:"rows"`
+	Checksum string
 }
 
 type row map[string]yaml.Node

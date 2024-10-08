@@ -77,10 +77,10 @@ func (t *Tables) InProgress(typ reflect.Type) *Table {
 	return table
 }
 
-func (t *Tables) ByModel(name string) *Table {
+func (t *Tables) ByChecksum(checksum string) *Table {
 	var found *Table
 	t.tables.Range(func(typ reflect.Type, table *Table) bool {
-		if table.TypeName == name {
+		if table.Checksum != "" && table.Checksum == checksum {
 			found = table
 			return false
 		}
